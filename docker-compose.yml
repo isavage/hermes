@@ -1,4 +1,4 @@
-# ─── Zeno — Hermes Agent (Docker) ───────────────────────────────────────
+# ─── Zeno — Hermes Agent (Docker) ──────────────────────────────────────
 # Run everything through Doppler so secrets are injected at runtime and
 # never committed:
 #

@@ -20,10 +20,10 @@ flowchart LR
     end
 
     DOP[DOPPLER_TOKEN<br/>GitHub secret] --> WF
-    WF -- scp docker-compose.yml --> VPS
-    WF -- doppler run -- docker compose up -d --> C
-    C -- mounts --> DATA
-    DEV[Operator] -- https://zeno.varunrs.in --> DASH
+    WF -->|scp docker-compose.yml| VPS
+    WF -->|"doppler run -- docker compose up -d"| C
+    C -->|mounts| DATA
+    DEV[Operator] -->|https://zeno.varunrs.in| DASH
 
     classDef cfg fill:#e6ffe6,stroke:#2a7
     classDef state fill:#ffe6e6,stroke:#d33
