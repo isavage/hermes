@@ -14,7 +14,8 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) running in Docker
 
 | Path | Tracked? | Purpose |
 |------|----------|---------|
-| `docker-compose.yml` | ✅ | Container definition (the only deployment artifact) |
+| `docker-compose.yml` | ✅ | Container definition |
+| `scripts/bootstrap-hermes-config.sh` | ✅ | First-run config bootstrap (dashboard auth from Doppler) |
 | `.github/workflows/deploy.yml` | ✅ | Deploy pipeline |
 | `.env.example` | ✅ | Doppler secret schema reference (no real values) |
 | `README.md` | ✅ | This doc |
@@ -46,7 +47,7 @@ gh workflow run "Deploy Zeno Hermes Agent" -f cleanup=true
 
 Everything except the container definition is managed on the server:
 
-- **Dashboard** (config, personality, skills): (reverse proxy → http://hermes:9119 over the `hermes.net` network)
+- **Dashboard** (config, personality, skills): https://zeno.varunrs.in (reverse proxy → http://hermes:9119 over the `hermes.net` network)
 - **SSH** directly to the VPS if you prefer files:
   ```sh
   ssh user@<vps>
@@ -55,11 +56,17 @@ Everything except the container definition is managed on the server:
   doppler run -- docker compose restart hermes
   ```
 
+### First run is fully automated
+
+On the first deploy, `scripts/bootstrap-hermes-config.sh` (run by the workflow under `doppler run`) generates a valid `config.yaml` on the server — dashboard basic auth from `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD`, `_config_version: 12`, and `toolsets: [all]` (terminal tool enabled). No manual `hermes setup` needed.
+
+- Add `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` to your Doppler config.
+- The bootstrap is **idempotent**: once `config.yaml` is provisioned, deploys never overwrite it — you manage it via the dashboard.
+- To re-bootstrap (fresh VPS, or you deleted the config), remove `.hermes/config.yaml` on the server and redeploy.
+
 ## Agent access to your other Docker containers
 
-Zeno can inspect your other containers — list them, read their logs, check stats — through a **read-only** Docker API proxy, without ever holding the Docker socket itself.
-
-- `docker-proxy` (`tecnativa/docker-socket-proxy`) is the only service with the host socket, mounted `:ro`.
+ZenoVerify it works:** `docker exec hermes docker ps` should list your containers. (The first-run bootstrap sets `toolsets: [all]`, so the terminal tool is already enabled.)cket, mounted `:ro`.
 - It enables only read endpoints (`CONTAINERS`, `LOGS`, `INFO`, `IMAGES`, `VOLUMES`, `NETWORKS`). Create/exec/delete are denied, and it's reachable only on `hermes.net` (no published ports).
 - The `hermes` container talks to it over the private network via `DOCKER_HOST=tcp://docker-proxy:2375`.
 

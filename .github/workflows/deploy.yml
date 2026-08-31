@@ -27,7 +27,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
-          source: "docker-compose.yml"
+          source: "docker-compose.yml,scripts/bootstrap-hermes-config.sh"
           target: "/tmp/hermes-deploy"
           overwrite: true
 
@@ -74,6 +74,12 @@ jobs:
             fi
 
             doppler run -- docker compose pull
+
+            # First-run bootstrap: ensures a valid config.yaml exists on the
+            # server (dashboard basic auth from Doppler, _config_version: 12).
+            # Idempotent — leaves an already-provisioned config untouched.
+            sudo -E doppler run -- bash "$TARGET_DIR/scripts/bootstrap-hermes-config.sh" "$TARGET_DIR/.hermes"
+
             doppler run -- docker compose up -d --force-recreate
             sleep 10
             docker compose ps
