@@ -47,9 +47,12 @@ fi
 
 # Derive the auth hash using the Hermes image's own helper.
 # The password travels via env, never on the command line.
+# Note: pass the value explicitly (-e NAME=$VALUE) — `-e NAME` alone would
+# rely on docker forwarding NAME from its own env, but the shell variable
+# here is not exported, so the container would get an empty/missing value.
 echo "[bootstrap] Generating dashboard auth hash…"
 HASH="$(docker run --rm \
-  -e DASH_PASSWORD \
+  -e "DASH_PASSWORD=$DASH_PASSWORD" \
   --entrypoint /opt/hermes/.venv/bin/python \
   "$IMAGE" -c "import os; from plugins.dashboard_auth.basic import hash_password; print(hash_password(os.environ['DASH_PASSWORD']))")"
 
