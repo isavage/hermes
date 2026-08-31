@@ -6,7 +6,7 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) running in Docker
 
 
 - **This repo only owns the container definition** (`docker-compose.yml`) and the deploy pipeline (`.github/workflows/deploy.yml`).
-- **All Hermes configuration lives on the server**, under `./.hermes/` (mounted into the container at `/opt/data`). `config.yaml`, `SOUL.md` (personality), and `skills/` are edited through the **Hermes dashboard** (https://zeno.varunrs.in — reverse-proxied to the container). Logs, sessions, memories, the SQLite DB, and credentials are runtime state.
+- **All Hermes configuration lives on the server**, under `./.hermes/` (mounted into the container at `/opt/data`). `config.yaml`, `SOUL.md` (personality), and `skills/` are edited through the **Hermes dashboard** ( — reverse-proxied to the container). Logs, sessions, memories, the SQLite DB, and credentials are runtime state.
 - **`.hermes/` is fully gitignored** — nothing in it is tracked or deployed from this repo. On first boot, Hermes seeds a default `config.yaml` and `SOUL.md` automatically.
 - **Secrets come only from Doppler** — never from the repo, never from files.
 
@@ -46,7 +46,7 @@ gh workflow run "Deploy Zeno Hermes Agent" -f cleanup=true
 
 Everything except the container definition is managed on the server:
 
-- **Dashboard** (config, personality, skills): https://zeno.varunrs.in (reverse proxy → http://hermes:9119 over the `hermes.net` network)
+- **Dashboard** (config, personality, skills): (reverse proxy → http://hermes:9119 over the `hermes.net` network)
 - **SSH** directly to the VPS if you prefer files:
   ```sh
   ssh user@<vps>
