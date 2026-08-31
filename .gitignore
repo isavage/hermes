@@ -1,0 +1,14 @@
+# ─── Hermes data — NEVER commit ─────────────────────────────────────────
+# Everything under .hermes/ is managed on the server, not in this repo:
+#   - config.yaml, SOUL.md, skills/  → edited via the Hermes dashboard
+#   - logs/, sessions/, state.db, memories/, .env, auth.json, ... → runtime state
+# The deploy workflow creates .hermes/ on the VPS; nothing here is tracked.
+.hermes/
+
+# Local env / secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# OS / editor junk
+.DS_Store

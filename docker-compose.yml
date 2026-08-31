@@ -1,0 +1,92 @@
+# ─── Zeno — Hermes Agent (Docker) ───────────────────────────────────────
+# Run everything through Doppler so secrets are injected at runtime and
+# never committed:
+#
+#     doppler run -- docker compose up -d
+#
+# The deploy workflow (.github/workflows/deploy.yml) does exactly this on the
+# VPS. `${VAR}` below is substituted by docker compose from the environment
+# Doppler provides. All Hermes state (config, sessions, logs, skills,
+# memories, .env) lives in the bind-mounted ./.hermes -> /opt/data volume.
+#
+# Networking: the service runs on its own bridge network `hermes.net` and
+# publishes NO host ports — it is unreachable from the internet and from the
+# host's network namespace. The dashboard/gateway API are reachable only from
+# other containers on `hermes.net`, e.g. your nginx reverse proxy
+# (zeno.varunrs.in -> http://hermes:9119).
+
+services:
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    shm_size: 1g                # needed by Playwright/Chromium browser tools
+    networks:
+      - hermes.net
+    depends_on:
+      - docker-proxy
+    volumes:
+      - ./.hermes:/opt/data     # single source of truth for all Hermes state
+    environment:
+      # Model providers — injected by Doppler; override /opt/data/.env
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+      - FIREWORKS_API_KEY=${FIREWORKS_API_KEY:-}
+
+      # Telegram (messaging gateway)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - TELEGRAM_ALLOW_ALL_USERS=${TELEGRAM_ALLOW_ALL_USERS:-false}
+      - TELEGRAM_HOME_CHANNEL=${TELEGRAM_HOME_CHANNEL:-}
+
+      # The web dashboard runs as a supervised s6 service INSIDE this same
+      # container (current official behavior). Set 1 to expose it on :9119.
+      - HERMES_DASHBOARD=${HERMES_DASHBOARD:-1}
+
+      # Map the in-container hermes user to your host user so volume files
+      # are owned correctly (default 10000:10000).
+      - HERMES_UID=${HERMES_UID:-10000}
+      - HERMES_GID=${HERMES_GID:-10000}
+
+      # Docker access — the in-container docker CLI talks to the read-only
+      # socket proxy (docker-proxy service below) over the private network.
+      - DOCKER_HOST=tcp://docker-proxy:2375
+
+    # Optional resource limits:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 4G
+    #       cpus: "2.0"
+
+  # Read-only Docker API proxy — the ONLY path for the agent to reach the
+  # host's Docker daemon. It lets Zeno inspect your other containers and
+  # their logs without ever handing it the Docker socket (which would be
+  # root-equivalent on the host). Only read endpoints are enabled;
+  # create/exec/delete remain denied. Reachable only on hermes.net.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-proxy
+    restart: unless-stopped
+    networks:
+      - hermes.net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Read-only surface — container inspection + logs only.
+      INFO: "1"
+      CONTAINERS: "1"
+      LOGS: "1"
+      IMAGES: "1"
+      VOLUMES: "1"
+      NETWORKS: "1"
+      # Everything else (POST/PATCH/DELETE/EXEC/BUILD/...) is denied by default.
+
+networks:
+  hermes.net:
+    name: hermes.net
+    driver: bridge

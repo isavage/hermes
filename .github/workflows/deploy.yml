@@ -1,0 +1,79 @@
+name: Deploy Zeno Hermes Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: Pull a fresh official Hermes image before restarting
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main, master]
+    paths-ignore: ['.gitignore', 'README.md']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod-IN
+    steps:
+      - name: Checkout deployment files
+        uses: actions/checkout@v4
+
+      - name: Upload deployment files to VPS staging directory
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "docker-compose.yml"
+          target: "/tmp/zeno-hermes-deploy"
+          overwrite: true
+
+      - name: Pull and restart official Hermes image
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+          CLEANUP: ${{ inputs.cleanup || 'false' }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          envs: DOPPLER_TOKEN,CLEANUP
+          script: |
+            set -euo pipefail
+
+            TARGET_DIR="/docker/zeno-hermes"
+            TEMP_DIR="/tmp/zeno-hermes-deploy"
+
+            # Doppler CLI is required for `doppler run`. Idempotent install.
+            if ! command -v doppler >/dev/null 2>&1; then
+              curl -sL https://cli.doppler.com/install.sh | sh
+            fi
+
+            sudo mkdir -p "$TARGET_DIR" "$TARGET_DIR/.hermes"
+
+            # Sync tracked deployment files (docker-compose.yml, ...).
+            # `--exclude='.hermes/'` means the runtime data dir is NEVER
+            # touched: config.yaml, SOUL.md, skills/ and all runtime state
+            # are managed on the server (via the Hermes dashboard) and are
+            # deliberately NOT part of this repo.
+            sudo rsync -a --delete --exclude='.hermes/' "$TEMP_DIR"/ "$TARGET_DIR"/
+            sudo rm -rf "$TEMP_DIR"
+
+            cd "$TARGET_DIR"
+
+            doppler run -- docker compose down || true
+
+            # cleanup means refresh the image, not delete persistent Hermes data.
+            if [ "$CLEANUP" = "true" ]; then
+              doppler run -- docker image rm nousresearch/hermes-agent:latest || true
+            fi
+
+            doppler run -- docker compose pull
+            doppler run -- docker compose up -d --force-recreate
+            sleep 10
+            docker compose ps
+            docker compose ps | grep -q "Up\|running"
