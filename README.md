@@ -4,30 +4,6 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) running in Docker
 
 ## How it works
 
-```mermaid
-flowchart LR
-    subgraph GitHub[GitHub Repo]
-        COMPOSE[docker-compose.yml]
-        WF[.github/workflows/deploy.yml]
-    end
-
-    subgraph VPS[Docker host]
-        subgraph DATA[./.hermes managed on server]
-            DASH[config.yaml<br/>SOUL.md<br/>skills/]:::cfg
-            STATE[logs/ sessions/ state.db<br/>memories/ .env auth.json]:::state
-        end
-        C[hermes container<br/>nousresearch/hermes-agent:latest]
-    end
-
-    DOP[DOPPLER_TOKEN<br/>GitHub secret] --> WF
-    WF -->|scp docker-compose.yml| VPS
-    WF -->|"doppler run -- docker compose up -d"| C
-    C -->|mounts| DATA
-    DEV[Operator] -->|https://zeno.varunrs.in| DASH
-
-    classDef cfg fill:#e6ffe6,stroke:#2a7
-    classDef state fill:#ffe6e6,stroke:#d33
-```
 
 - **This repo only owns the container definition** (`docker-compose.yml`) and the deploy pipeline (`.github/workflows/deploy.yml`).
 - **All Hermes configuration lives on the server**, under `./.hermes/` (mounted into the container at `/opt/data`). `config.yaml`, `SOUL.md` (personality), and `skills/` are edited through the **Hermes dashboard** (https://zeno.varunrs.in — reverse-proxied to the container). Logs, sessions, memories, the SQLite DB, and credentials are runtime state.
