@@ -53,13 +53,14 @@ jobs:
               curl -sL https://cli.doppler.com/install.sh | sh
             fi
 
+            # Ensure the Hermes data volume dir exists on the server (it is
+            # the bind-mount target for /opt/data, created outside the repo).
             sudo mkdir -p "$TARGET_DIR" "$TARGET_DIR/.hermes"
 
             # Sync tracked deployment files (docker-compose.yml, ...).
-            # `--exclude='.hermes/'` means the runtime data dir is NEVER
-            # touched: config.yaml, SOUL.md, skills/ and all runtime state
-            # are managed on the server (via the Hermes dashboard) and are
-            # deliberately NOT part of this repo.
+            # The host's Hermes data dir is never synced or deleted here:
+            # everything inside it is managed by Hermes itself on the server
+            # (dashboard config + runtime state), so --delete must not see it.
             sudo rsync -a --delete --exclude='.hermes/' "$TEMP_DIR"/ "$TARGET_DIR"/
             sudo rm -rf "$TEMP_DIR"
 
