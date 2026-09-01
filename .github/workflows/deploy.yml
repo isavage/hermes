@@ -86,6 +86,26 @@ jobs:
             sudo -E doppler run -- bash "$TARGET_DIR/scripts/bootstrap-hermes-config.sh" hermes-data
 
             doppler run -- docker compose up -d --force-recreate
-            sleep 10
+
+            # Verify hermes came up. `compose up -d` can return before the
+            # container is fully running, and parsing `compose ps` output is
+            # fragile (caused false 255 failures even though the containers
+            # were Up). Inspect the runtime state directly instead, with retry.
+            state=""
+            for i in $(seq 1 30); do
+              state="$(docker inspect -f '{{.State.Running}}' hermes 2>/dev/null || true)"
+              health="$(docker inspect -f '{{.State.Health.Status}}' hermes 2>/dev/null || true)"
+              if [ "$state" = "true" ]; then
+                echo "[deploy] hermes is Running (health: ${health:-n/a})"
+                break
+              fi
+              echo "[deploy] waiting for hermes to start... ($i/30)"
+              sleep 5
+            done
+
             docker compose ps
-            docker compose ps | grep -q "Up\|running"
+
+            if [ "$state" != "true" ]; then
+              echo "[deploy] ERROR: hermes container is not running." >&2
+              exit 1
+            fi
