@@ -47,7 +47,7 @@ gh workflow run "Deploy Zeno Hermes Agent" -f cleanup=true
 
 Everything except the container definition is managed on the server:
 
-- **Dashboard** (config, personality, skills): https://zeno.varunrs.in (reverse proxy → http://hermes:9119 over the `hermes.net` network)
+- **Dashboard** (config, personality, skills): (reverse proxy → http://hermes:9119 over the `hermes.net` network)
 - **SSH** directly to the VPS if you prefer files (data is in the `hermes-data` volume, so reach it with a helper container):
   ```sh
   ssh user@<vps>
