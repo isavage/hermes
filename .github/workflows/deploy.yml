@@ -53,15 +53,16 @@ jobs:
               curl -sL https://cli.doppler.com/install.sh | sh
             fi
 
-            # Ensure the Hermes data volume dir exists on the server (it is
-            # the bind-mount target for /opt/data, created outside the repo).
-            sudo mkdir -p "$TARGET_DIR" "$TARGET_DIR/.hermes"
+            # Ensure the deploy target dir exists on the server. Hermes data
+            # does NOT live here anymore — it is in the named Docker volume
+            # `hermes-data` (mounted at /opt/data), created on first use and
+            # owned entirely by Docker.
+            sudo mkdir -p "$TARGET_DIR"
 
             # Sync tracked deployment files (docker-compose.yml, ...).
-            # The host's Hermes data dir is never synced or deleted here:
-            # everything inside it is managed by Hermes itself on the server
-            # (dashboard config + runtime state), so --delete must not see it.
-            sudo rsync -a --delete --exclude='.hermes/' "$TEMP_DIR"/ "$TARGET_DIR"/
+            # Hermes runtime data is NOT synced or deleted here: it lives in
+            # the named volume `hermes-data`, so --delete cannot touch it.
+            sudo rsync -a --delete "$TEMP_DIR"/ "$TARGET_DIR"/
             sudo rm -rf "$TEMP_DIR"
 
             cd "$TARGET_DIR"
@@ -75,10 +76,14 @@ jobs:
 
             doppler run -- docker compose pull
 
-            # First-run bootstrap: ensures a valid config.yaml exists on the
-            # server (dashboard basic auth from Doppler, _config_version: 12).
-            # Idempotent — leaves an already-provisioned config untouched.
-            sudo -E doppler run -- bash "$TARGET_DIR/scripts/bootstrap-hermes-config.sh" "$TARGET_DIR/.hermes"
+            # First-run bootstrap: ensures a valid config.yaml exists in the
+            # named volume `hermes-data` (dashboard basic auth from Doppler,
+            # _config_version: 12). Idempotent — leaves an already-provisioned
+            # config untouched. Must run BEFORE `compose up` so the dashboard
+            # has auth on first boot. (docker compose creates the volume if it
+            # does not exist yet, but the helper container below also creates
+            # it on demand.)
+            sudo -E doppler run -- bash "$TARGET_DIR/scripts/bootstrap-hermes-config.sh" hermes-data
 
             doppler run -- docker compose up -d --force-recreate
             sleep 10

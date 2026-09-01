@@ -6,8 +6,8 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) running in Docker
 
 
 - **This repo only owns the container definition** (`docker-compose.yml`) and the deploy pipeline (`.github/workflows/deploy.yml`).
-- **All Hermes configuration lives on the server**, under `./.hermes/` (mounted into the container at `/opt/data`). `config.yaml`, `SOUL.md` (personality), and `skills/` are edited through the **Hermes dashboard** ( — reverse-proxied to the container). Logs, sessions, memories, the SQLite DB, and credentials are runtime state.
-- **`.hermes/` is fully gitignored** — nothing in it is tracked or deployed from this repo. On first boot, Hermes seeds a default `config.yaml` and `SOUL.md` automatically.
+- **All Hermes configuration lives in a named Docker volume** `hermes-data` (mounted into the container at `/opt/data`). `config.yaml`, `SOUL.md` (personality), and `skills/` are edited through the **Hermes dashboard** ( — reverse-proxied to the container). Logs, sessions, memories, the SQLite DB, and credentials are runtime state.
+- **No Hermes data is tracked in this repo** — nothing is in it is committed or deployed. On first boot, the bootstrap script pre-provisions a valid `config.yaml` for dashboard auth, and Hermes seeds a default `SOUL.md` automatically.
 - **Secrets come only from Doppler** — never from the repo, never from files.
 
 ## Directory layout
@@ -19,7 +19,7 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) running in Docker
 | `.github/workflows/deploy.yml` | ✅ | Deploy pipeline |
 | `.env.example` | ✅ | Doppler secret schema reference (no real values) |
 | `README.md` | ✅ | This doc |
-| `.hermes/` (config.yaml, SOUL.md, skills/, logs/, sessions/, state.db, .env, …) | ❌ | Everything Hermes manages on the server — dashboard + runtime state |
+| `hermes-data` volume (config.yaml, SOUL.md, skills/, logs/, sessions/, state.db, .env, …) | ❌ | Everything Hermes manages — a Docker named volume (dashboard + runtime state) |
 
 ## Secrets: Doppler only
 
@@ -48,21 +48,26 @@ gh workflow run "Deploy Zeno Hermes Agent" -f cleanup=true
 Everything except the container definition is managed on the server:
 
 - **Dashboard** (config, personality, skills): https://zeno.varunrs.in (reverse proxy → http://hermes:9119 over the `hermes.net` network)
-- **SSH** directly to the VPS if you prefer files:
+- **SSH** directly to the VPS if you prefer files (data is in the `hermes-data` volume, so reach it with a helper container):
   ```sh
   ssh user@<vps>
   cd /docker/zeno-hermes
-  nano .hermes/config.yaml    # or SOUL.md, or add skills/ entries
+  docker run --rm -it -v hermes-data:/opt/data --entrypoint /bin/sh nousresearch/hermes-agent:latest
+  #   nano /opt/data/config.yaml    # or SOUL.md, or add skills/ entries
+  #   exit
   doppler run -- docker compose restart hermes
   ```
 
 ### First run is fully automated
 
-On the first deploy, `scripts/bootstrap-hermes-config.sh` (run by the workflow under `doppler run`) generates a valid `config.yaml` on the server — dashboard basic auth from `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD`, `_config_version: 12`, and `toolsets: [all]` (terminal tool enabled). No manual `hermes setup` needed.
+On the first deploy, `scripts/bootstrap-hermes-config.sh` (run by the workflow under `doppler run`) generates a valid `config.yaml` in the `hermes-data` volume — dashboard basic auth from `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD`, `public_url` from `DASHBOARD_PUBLIC_URL`, `_config_version: 12`, and `toolsets: [all]` (terminal tool enabled). No manual `hermes setup` needed.
 
-- Add `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` to your Doppler config.
+- Add `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`, and `DASHBOARD_PUBLIC_URL` to your Doppler config.
 - The bootstrap is **idempotent**: once `config.yaml` is provisioned, deploys never overwrite it — you manage it via the dashboard.
-- To re-bootstrap (fresh VPS, or you deleted the config), remove `.hermes/config.yaml` on the server and redeploy.
+- To re-bootstrap (fresh VPS, or you deleted the config), delete `config.yaml` from the `hermes-data` volume and redeploy:
+  ```sh
+  docker run --rm -v hermes-data:/opt/data --entrypoint /bin/sh nousresearch/hermes-agent:latest -c 'rm -f /opt/data/config.yaml'
+  ```
 
 ## Agent access to your other Docker containers
 

@@ -1,8 +1,8 @@
 # ─── Hermes data — NEVER commit ─────────────────────────────────────────
-# Everything under .hermes/ is managed on the server, not in this repo:
-#   - config.yaml, SOUL.md, skills/  → edited via the Hermes dashboard
-#   - logs/, sessions/, state.db, memories/, .env, auth.json, ... → runtime state
-# The deploy workflow creates .hermes/ on the VPS; nothing here is tracked.
+# Hermes state now lives in the named Docker volume `hermes-data`, NOT in a
+# repo folder. This entry is kept as a defensive guard in case a local
+# .hermes/ directory is ever created (e.g. for local dev); nothing in it is
+# tracked or deployed.
 .hermes/
 
 # Local env / secrets (never commit)

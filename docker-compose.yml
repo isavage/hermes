@@ -7,7 +7,9 @@
 # The deploy workflow (.github/workflows/deploy.yml) does exactly this on the
 # VPS. `${VAR}` below is substituted by docker compose from the environment
 # Doppler provides. All Hermes state (config, sessions, logs, skills,
-# memories, .env) lives in the bind-mounted ./.hermes -> /opt/data volume.
+# memories, .env) lives in the named Docker volume `hermes-data` mounted at
+# /opt/data. It is NOT a host folder — Docker owns it, so it survives
+# container recreation and the repo checkout independently.
 #
 # Networking: the service runs on its own bridge network `hermes.net` and
 # publishes NO host ports — it is unreachable from the internet and from the
@@ -27,7 +29,7 @@ services:
     depends_on:
       - docker-proxy
     volumes:
-      - ./.hermes:/opt/data     # single source of truth for all Hermes state
+      - hermes-data:/opt/data   # named volume — single source of truth for all Hermes state
     environment:
       # Model providers — injected by Doppler; override /opt/data/.env
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
@@ -90,3 +92,9 @@ networks:
   hermes.net:
     name: hermes.net
     driver: bridge
+
+# Named volume for all Hermes state — keeps data out of the repo checkout and
+# lets Docker manage it (created on first use, survives `compose down`).
+volumes:
+  hermes-data:
+    name: hermes-data
