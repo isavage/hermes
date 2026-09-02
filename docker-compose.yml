@@ -38,6 +38,7 @@ services:
       - KIMI_API_KEY=${KIMI_API_KEY:-}
       - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
       - FIREWORKS_API_KEY=${FIREWORKS_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}   # Gemini / Google AI Studio (alias GEMINI_API_KEY)
 
       # Telegram (messaging gateway)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
